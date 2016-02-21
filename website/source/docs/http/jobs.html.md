@@ -89,6 +89,124 @@ another region can be specified using the `?region=` query parameter.
         the return response of [GET against `/v1/job/<ID>`](/docs/http/job.html).
       </li>
     </ul>
+    <ul>
+    ```javascript
+    {
+      "Datacenters": [
+        "dc1"
+      ],
+      "AllAtOnce": false,
+      "Priority": 50,
+      "Type": "service",
+      "Name": "example",
+      "Region": "global",
+      "Constraints": [
+        {
+          "Operand": "=",
+          "RTarget": "linux",
+          "LTarget": "${attr.kernel.name}"
+        }
+      ],
+      "TaskGroups": [
+        {
+          "Meta": null,
+          "Tasks": [
+            {
+              "LogConfig": {
+                "MaxFileSizeMB": 10,
+                "MaxFiles": 10
+              },
+              "KillTimeout": 5e+09,
+              "Name": "redis",
+              "Driver": "docker",
+              "Config": {
+                "port_map": [
+                  {
+                    "db": 6379
+                  }
+                ],
+                "image": "redis:latest"
+              },
+              "Env": {
+                  "foo": "bar"
+              },
+              "Services": [
+                {
+                  "Checks": [
+                    {
+                      "Timeout": 2e+09,
+                      "Interval": 1e+10,
+                      "Protocol": "",
+                      "Path": "",
+                      "Script": "",
+                      "Type": "tcp",
+                      "Name": "alive"
+                    }
+                  ],
+                  "PortLabel": "db",
+                  "Tags": [
+                    "global",
+                    "cache"
+                  ],
+                  "Name": "cache-redis"
+                }
+              ],
+              "Constraints": null,
+              "Resources": {
+                "Networks": [
+                  {
+                    "DynamicPorts": [
+                      {
+                        "Value": 0,
+                        "Label": "db"
+                      }
+                    ],
+                    "ReservedPorts": null,
+                    "MBits": 10,
+                    "IP": "",
+                    "CIDR": "",
+                    "Device": ""
+                  }
+                ],
+                "IOPS": 0,
+                "DiskMB": 300,
+                "MemoryMB": 256,
+                "CPU": 500
+              },
+              "Meta": {
+                  "foo": "bar",
+                  "baz": "pipe"
+              }
+            }
+          ],
+          "RestartPolicy": {
+            "Mode": "delay",
+            "Delay": 2.5e+10,
+            "Interval": 3e+11,
+            "Attempts": 10
+          },
+          "Constraints": null,
+          "Count": 1,
+          "Name": "cache"
+        }
+      ],
+      "Update": {
+        "MaxParallel": 1,
+        "Stagger": 1e+10
+      },
+      "Periodic": {
+          "Enabled": true,
+          "Spec": "0 0 0/2 * * ?",
+          "SpecType": "cron",
+          "ProhibitOverlap": true
+      },
+      "Meta": {
+          "foo": "bar",
+          "baz": "pipe"
+      }
+    }
+    ```
+    </ul>
   </dd>
 
   <dt>Returns</dt>
