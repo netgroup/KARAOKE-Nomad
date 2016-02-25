@@ -16,8 +16,10 @@ GIT_COMMIT=$(git rev-parse HEAD)
 GIT_DIRTY=$(test -n "`git status --porcelain`" && echo "+CHANGES" || true)
 
 # Determine the arch/os combos we're building for
-XC_ARCH=${XC_ARCH:-"386 amd64 arm"}
-XC_OS=${XC_OS:-linux darwin windows freebsd openbsd}
+#XC_ARCH=${XC_ARCH:-"386 amd64 arm"}
+#XC_OS=${XC_OS:-linux darwin windows freebsd openbsd}
+XC_ARCH="386"
+XC_OS=linux
 
 # Delete the old dir
 echo "==> Removing old directory..."
