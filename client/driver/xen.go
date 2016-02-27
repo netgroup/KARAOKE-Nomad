@@ -36,10 +36,11 @@ type XenDriver struct {
 
 // Configuration for XenDriver
 type XenDriverConfig struct {
-	ArtifactSource string           `mapstructure:"artifact_source"`
-	Checksum       string           `mapstructure:"checksum"`
-	Accelerator    string           `mapstructure:"accelerator"`
-	PortMap        []map[string]int `mapstructure:"port_map"` // A map of host port labels and to guest ports.
+	CfgSource   string           `mapstructure:"cfg_source"`
+	ImgSource   string           `mapstructure:"img_source"`
+	Checksum    string           `mapstructure:"checksum"`
+	Accelerator string           `mapstructure:"accelerator"`
+	PortMap     []map[string]int `mapstructure:"port_map"` // A map of host port labels and to guest ports.
 }
 
 // old xenHandle is returned from Start/Open as a handle to the PID (identical to qemu and java).
@@ -133,7 +134,7 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		    return h, nil
 	*/
 
-	var driverConfig QemuDriverConfig
+	var driverConfig XenDriverConfig
 	if err := mapstructure.WeakDecode(task.Config, &driverConfig); err != nil {
 		return nil, err
 	}
@@ -144,10 +145,16 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		}
 	*/
 
-	// Get the image source
-	source, ok := task.Config["artifact_source"]
-	if !ok || source == "" {
-		return nil, fmt.Errorf("Missing source image Qemu driver")
+	// Get the cfg source
+	cfg_source, ok := task.Config["cfg_source"]
+	if !ok || cfg_source == "" {
+		return nil, fmt.Errorf("Missing source cfg Xen driver")
+	}
+
+	// Get the img source
+	img_source, ok := task.Config["img_source"]
+	if !ok || img_source == "" {
+		return nil, fmt.Errorf("Missing source image Xen driver")
 	}
 
 	// Qemu defaults to 128M of RAM for a given VM. Instead, we force users to
@@ -165,10 +172,19 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	}
 
 	// Proceed to download an artifact to be executed.
+	cfgPath, err := getter.GetArtifact(
+		taskDir,
+		driverConfig.CfgSource,
+		driverConfig.Checksum,
+		d.logger,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	vmPath, err := getter.GetArtifact(
 		taskDir,
-		driverConfig.ArtifactSource,
+		driverConfig.ImgSource,
 		driverConfig.Checksum,
 		d.logger,
 	)
@@ -191,7 +207,7 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 
 	args := []string{
 		"xl",
-		"create ",
+		"create",
 		"clickos.cfg",
 	}
 
@@ -268,7 +284,7 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	}
 	t2 := time.Now()
 	duration := t2.Sub(t1)
-	d.logger.Printf("[INFO] Started new xenVM %s in:%v\n", vmID, duration)
+	d.logger.Printf("[INFO] Started new xenVM %s using cfg%s in:%v\n", vmID, cfgPath, duration)
 
 	// Create and Return Handle
 	h := &xenHandle{
