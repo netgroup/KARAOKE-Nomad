@@ -16,8 +16,10 @@ import (
 	"github.com/hashicorp/nomad/client/driver/executor"
 	cstructs "github.com/hashicorp/nomad/client/driver/structs"
 	"github.com/hashicorp/nomad/client/fingerprint"
+	"github.com/hashicorp/nomad/client/getter"
 	"github.com/hashicorp/nomad/helper/discover"
 	"github.com/hashicorp/nomad/nomad/structs"
+	"github.com/mitchellh/mapstructure"
 )
 
 var (
@@ -131,14 +133,16 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		    return h, nil
 	*/
 
-	/*var driverConfig QemuDriverConfig
+	var driverConfig QemuDriverConfig
 	if err := mapstructure.WeakDecode(task.Config, &driverConfig); err != nil {
 		return nil, err
 	}
 
-	if len(driverConfig.PortMap) > 1 {
-		return nil, fmt.Errorf("Only one port_map block is allowed in the qemu driver config")
-	}
+	/*
+		if len(driverConfig.PortMap) > 1 {
+			return nil, fmt.Errorf("Only one port_map block is allowed in the qemu driver config")
+		}
+	*/
 
 	// Get the image source
 	source, ok := task.Config["artifact_source"]
@@ -148,9 +152,10 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 
 	// Qemu defaults to 128M of RAM for a given VM. Instead, we force users to
 	// supply a memory size in the tasks resources
-	if task.Resources == nil || task.Resources.MemoryMB == 0 {
-		return nil, fmt.Errorf("Missing required Task Resource: Memory")
-	}
+	/*
+		if task.Resources == nil || task.Resources.MemoryMB == 0 {
+			return nil, fmt.Errorf("Missing required Task Resource: Memory")
+		}
 	*/
 
 	// Get the tasks local directory.
@@ -160,21 +165,22 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	}
 
 	// Proceed to download an artifact to be executed.
+
+	vmPath, err := getter.GetArtifact(
+		taskDir,
+		driverConfig.ArtifactSource,
+		driverConfig.Checksum,
+		d.logger,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	vmID := filepath.Base(vmPath)
+
+	// Parse configuration arguments
+	// Create the base arguments
 	/*
-		vmPath, err := getter.GetArtifact(
-			taskDir,
-			driverConfig.ArtifactSource,
-			driverConfig.Checksum,
-			d.logger,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		vmID := filepath.Base(vmPath)
-
-		// Parse configuration arguments
-		// Create the base arguments
 		accelerator := "tcg"
 		if driverConfig.Accelerator != "" {
 			accelerator = driverConfig.Accelerator
@@ -184,9 +190,9 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	*/
 
 	args := []string{
-		"pwd",
-		" ",
-		//"/root/clickos.cfg",
+		"xl",
+		"create ",
+		"clickos.cfg",
 	}
 
 	/*
@@ -262,7 +268,7 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	}
 	t2 := time.Now()
 	duration := t2.Sub(t1)
-	d.logger.Printf("[INFO] Started new xenVM in:%v\n", duration)
+	d.logger.Printf("[INFO] Started new xenVM %s in:%v\n", vmID, duration)
 
 	// Create and Return Handle
 	h := &xenHandle{
@@ -289,7 +295,7 @@ type xenId struct {
 
 func (d *XenDriver) Open(ctx *ExecContext, handleID string) (DriverHandle, error) {
 	/*
-		Old Process
+		Old code
 		// Find the process
 		cmd, err := executor.OpenId(handleID)
 		if err != nil {
