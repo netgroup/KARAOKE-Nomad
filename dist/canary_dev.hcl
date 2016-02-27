@@ -1,6 +1,8 @@
 # This deployment is only for dev, we have client and server in the same machine
 
-bind_addr = "160.80.105.4"
+# Increase log verbosity
+log_level = "DEBUG"
+
 data_dir = "/var/lib/canary_dev"
 
 server {

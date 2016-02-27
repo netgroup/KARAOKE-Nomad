@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	reMajVersion = regexp.MustCompile(`xen_major:'d'`)
-	reMinVersion = regexp.MustCompile(`xen_minor:'d'`)
-	reExtVersion = regexp.MustCompile(`xen_extra:.'d'`)
+	reMajVersion = regexp.MustCompile(`xen_major\s+:\s([1-9])`)
+	reMinVersion = regexp.MustCompile(`xen_minor\s+:\s([1-9])`)
+	reExtVersion = regexp.MustCompile(`xen_extra\s+:\s.([1-9])`)
 )
 
 // XenDriver is a driver for running Xen.
@@ -77,18 +77,17 @@ func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, e
 		return false, nil
 	}
 	out := strings.TrimSpace(string(outBytes))
-
 	matches1 := reMajVersion.FindStringSubmatch(out)
 	if len(matches1) != 2 {
-		return false, fmt.Errorf("Unable to parse Xen version string: %#v", matches1)
+		return false, fmt.Errorf("Unable to parse Xen major version string: %#v", matches1)
 	}
 	matches2 := reMinVersion.FindStringSubmatch(out)
 	if len(matches2) != 2 {
-		return false, fmt.Errorf("Unable to parse Xen version string: %#v", matches2)
+		return false, fmt.Errorf("Unable to parse Xen minor version string: %#v", matches2)
 	}
 	matches3 := reExtVersion.FindStringSubmatch(out)
 	if len(matches3) != 2 {
-		return false, fmt.Errorf("Unable to parse Xen version string: %#v", matches3)
+		return false, fmt.Errorf("Unable to parse Xen extra version string: %#v", matches3)
 	}
 
 	matches := matches1[1] + "." + matches2[1] + "." + matches3[1]
@@ -104,32 +103,32 @@ func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, e
 func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, error) {
 
 	/*
-		Old code
-		// Xen defaults to 256M of RAM for a given VM. Instead, we force users to
-		// supply a memory size in the tasks resources
-		if task.Resources == nil || task.Resources.MemoryMB == 0 {
-			return nil, fmt.Errorf("Missing required Task Resource: Memory")
-		}
+			Old code
+			// Xen defaults to 256M of RAM for a given VM. Instead, we force users to
+			// supply a memory size in the tasks resources
+			if task.Resources == nil || task.Resources.MemoryMB == 0 {
+				return nil, fmt.Errorf("Missing required Task Resource: Memory")
+			}
 
-		args := []string{
-	                "xl",
-	                "create",
-	                "/root/clickos.cfg",
-		}
+			args := []string{
+		                "xl",
+		                "create",
+		                "/root/clickos.cfg",
+			}
 
-		// Setup the command
-		cmd := executor.Command(args[0], args[1:]...)
-		d.logger.Printf("[DEBUG] Starting XenVM command: %q", strings.Join(args, " "))
+			// Setup the command
+			cmd := executor.Command(args[0], args[1:]...)
+			d.logger.Printf("[DEBUG] Starting XenVM command: %q", strings.Join(args, " "))
 
-		// Create and Return Handle
-	    h := &execHandle{
-	            cmd:    cmd,
-	            doneCh: make(chan struct{}),
-	            waitCh: make(chan *cstructs.WaitResult, 1),
-	    }
+			// Create and Return Handle
+		    h := &execHandle{
+		            cmd:    cmd,
+		            doneCh: make(chan struct{}),
+		            waitCh: make(chan *cstructs.WaitResult, 1),
+		    }
 
-	    go h.run()
-	    return h, nil
+		    go h.run()
+		    return h, nil
 	*/
 
 	/*var driverConfig QemuDriverConfig
@@ -185,9 +184,9 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	*/
 
 	args := []string{
-		"xl",
-		"create",
-		"/root/clickos.cfg",
+		"pwd",
+		" ",
+		//"/root/clickos.cfg",
 	}
 
 	/*
@@ -263,7 +262,7 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	}
 	t2 := time.Now()
 	duration := t2.Sub(t1)
-	d.logger.Printf("[INFO] Started new xenVM in:", duration)
+	d.logger.Printf("[INFO] Started new xenVM in:%v\n", duration)
 
 	// Create and Return Handle
 	h := &xenHandle{
