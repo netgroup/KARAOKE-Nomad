@@ -73,8 +73,8 @@ func NewXenDriver(ctx *DriverContext) Driver {
 
 // Return the driver to be used
 func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, error) {
-	bin := "xl"
 
+	bin := "xl"
 	outBytes, err := exec.Command(bin, "info").Output()
 	if err != nil {
 		return false, nil
@@ -106,34 +106,14 @@ func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, e
 func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, error) {
 
 	/*
-			Old code
-			// Xen defaults to 256M of RAM for a given VM. Instead, we force users to
-			// supply a memory size in the tasks resources
-			if task.Resources == nil || task.Resources.MemoryMB == 0 {
-				return nil, fmt.Errorf("Missing required Task Resource: Memory")
-			}
+		- TODO
+		- Complete Driver;
+		- cfg in the code;
+		- different toolstack
 
-			args := []string{
-		                "xl",
-		                "create",
-		                "/root/clickos.cfg",
-			}
-
-			// Setup the command
-			cmd := executor.Command(args[0], args[1:]...)
-			d.logger.Printf("[DEBUG] Starting XenVM command: %q", strings.Join(args, " "))
-
-			// Create and Return Handle
-		    h := &execHandle{
-		            cmd:    cmd,
-		            doneCh: make(chan struct{}),
-		            waitCh: make(chan *cstructs.WaitResult, 1),
-		    }
-
-		    go h.run()
-		    return h, nil
 	*/
-
+	t0 := time.Now()
+	t1 := t0
 	var driverConfig XenDriverConfig
 	if err := mapstructure.WeakDecode(task.Config, &driverConfig); err != nil {
 		return nil, err
@@ -157,6 +137,10 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		return nil, fmt.Errorf("Missing source image Xen driver")
 	}
 
+	t2 := time.Now()
+	duration := t2.Sub(t1)
+	d.logger.Printf("[INFO] loaded new XenDriverConfig in:%v\n", duration)
+
 	// Qemu defaults to 128M of RAM for a given VM. Instead, we force users to
 	// supply a memory size in the tasks resources
 	/*
@@ -166,12 +150,17 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	*/
 
 	// Get the tasks local directory.
+	t1 = time.Now()
 	taskDir, ok := ctx.AllocDir.TaskDirs[d.DriverContext.taskName]
 	if !ok {
 		return nil, fmt.Errorf("Could not find task directory for task: %v", d.DriverContext.taskName)
 	}
+	t2 = time.Now()
+	duration = t2.Sub(t1)
+	d.logger.Printf("[INFO] Allocated new TaskDir in:%v\n", duration)
 
 	// Proceed to download an artifact to be executed.
+	t1 = time.Now()
 	cfgPath, err := getter.GetArtifact(
 		taskDir,
 		driverConfig.CfgSource,
@@ -191,7 +180,11 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	if err != nil {
 		return nil, err
 	}
+	t2 = time.Now()
+	duration = t2.Sub(t1)
+	d.logger.Printf("[INFO] Downloaded XenArtifacts (cfg and image) in:%v\n", duration)
 
+	cfgID := filepath.Base(cfgPath)
 	vmID := filepath.Base(vmPath)
 
 	// Parse configuration arguments
@@ -208,7 +201,7 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	args := []string{
 		"xl",
 		"create",
-		"clickos.cfg",
+		cfgID,
 	}
 
 	/*
@@ -276,15 +269,19 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		TaskResources: task.Resources,
 		LogConfig:     task.LogConfig,
 	}
-	t1 := time.Now()
+	t2 = time.Now()
+	duration = t2.Sub(t0)
+	d.logger.Printf("[INFO] Init Completed in:%v\n", duration)
+
+	t1 = time.Now()
 	ps, err := exec.LaunchCmd(&executor.ExecCommand{Cmd: args[0], Args: args[1:]}, executorCtx)
 	if err != nil {
 		pluginClient.Kill()
 		return nil, fmt.Errorf("error starting process via the plugin: %v", err)
 	}
-	t2 := time.Now()
-	duration := t2.Sub(t1)
-	d.logger.Printf("[INFO] Started new xenVM %s using cfg%s in:%v\n", vmID, cfgPath, duration)
+	t2 = time.Now()
+	duration = t2.Sub(t1)
+	d.logger.Printf("[INFO] Started new xenVM %s using cfg %s in:%v\n", vmID, cfgID, duration)
 
 	// Create and Return Handle
 	h := &xenHandle{
