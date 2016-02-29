@@ -26,6 +26,8 @@ var (
 	reMajVersion = regexp.MustCompile(`xen_major\s+:\s([1-9])`)
 	reMinVersion = regexp.MustCompile(`xen_minor\s+:\s([1-9])`)
 	reExtVersion = regexp.MustCompile(`xen_extra\s+:\s.([1-9])`)
+	tstart       time.Time
+	tend         time.Time
 )
 
 // XenDriver is a driver for running Xen.
@@ -101,17 +103,18 @@ func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, e
 	return true, nil
 }
 
+/*
+	- TODO
+	- Complete Driver;
+	- cfg in the code;
+	- different toolstack
+
+*/
+
 // Run an existing Xen image. Start() will pull down an existing, valid Xen
 // image and save it to the Drivers Allocation Dir
 func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, error) {
 
-	/*
-		- TODO
-		- Complete Driver;
-		- cfg in the code;
-		- different toolstack
-
-	*/
 	t0 := time.Now()
 	t1 := t0
 	var driverConfig XenDriverConfig
@@ -271,17 +274,14 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	}
 	t2 = time.Now()
 	duration = t2.Sub(t0)
-	d.logger.Printf("[INFO] Init Completed in:%v\n", duration)
+	d.logger.Printf("[INFO] Init Completed in:%v. Starting new XenVM %s using %s\n", duration, vmID, cfgID)
 
-	t1 = time.Now()
+	tstart = time.Now()
 	ps, err := exec.LaunchCmd(&executor.ExecCommand{Cmd: args[0], Args: args[1:]}, executorCtx)
 	if err != nil {
 		pluginClient.Kill()
 		return nil, fmt.Errorf("error starting process via the plugin: %v", err)
 	}
-	t2 = time.Now()
-	duration = t2.Sub(t1)
-	d.logger.Printf("[INFO] Started new xenVM %s using cfg %s in:%v\n", vmID, cfgID, duration)
 
 	// Create and Return Handle
 	h := &xenHandle{
@@ -440,6 +440,9 @@ func (h *xenHandle) run() {
 		close(h.waitCh)
 	*/
 	ps, err := h.executor.Wait()
+	tend := time.Now()
+	duration := tend.Sub(tstart)
+	h.logger.Printf("[INFO] Started new xenVM in %v\n", duration)
 	if ps.ExitCode == 0 && err != nil {
 		if e := killProcess(h.userPid); e != nil {
 			h.logger.Printf("[ERROR] driver.xen: error killing user process: %v", e)
