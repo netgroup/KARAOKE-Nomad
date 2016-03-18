@@ -13,5 +13,5 @@ client {
     enabled = true
 
     # This is the endpoint where run the Server
-    servers = ["160.80.103.45:4647"]
+    servers = ["160.80.105.5:4647"]
 }

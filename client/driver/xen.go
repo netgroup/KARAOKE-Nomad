@@ -64,7 +64,6 @@ type xenHandle struct {
 	logger       *log.Logger
 	waitCh       chan *cstructs.WaitResult
 	doneCh       chan struct{}
-	tstart       time.Time
 }
 
 // NewXenDriver is used to create a new exec driver (identical to qemu and java).
@@ -114,7 +113,6 @@ func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, e
 // image and save it to the Drivers Allocation Dir
 func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, error) {
 
-	tstart := time.Now()
 	var driverConfig XenDriverConfig
 	if err := mapstructure.WeakDecode(task.Config, &driverConfig); err != nil {
 		return nil, err
@@ -138,8 +136,6 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		return nil, fmt.Errorf("Missing source image Xen driver")
 	}
 
-	d.logger.Printf("[DEBUG] loaded new XenDriverConfig")
-
 	// Qemu defaults to 128M of RAM for a given VM. Instead, we force users to
 	// supply a memory size in the tasks resources
 	/*
@@ -153,7 +149,6 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	if !ok {
 		return nil, fmt.Errorf("Could not find task directory for task: %v", d.DriverContext.taskName)
 	}
-	d.logger.Printf("[DEBUG] Allocated new TaskDir")
 
 	// Proceed to download an artifact to be executed.
 	cfgPath, err := getter.GetArtifact(
@@ -175,7 +170,6 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	if err != nil {
 		return nil, err
 	}
-	d.logger.Printf("[DEBUG] Downloaded XenArtifacts (cfg and image)")
 
 	cfgID := filepath.Base(cfgPath)
 	vmID := filepath.Base(vmPath)
@@ -262,17 +256,15 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		TaskResources: task.Resources,
 		LogConfig:     task.LogConfig,
 	}
-	d.logger.Printf("[DEBUG] Init Completed. Starting new XenVM %s using %s\n", vmID, cfgID)
-
 	ps, err := exec.LaunchCmd(&executor.ExecCommand{Cmd: args[0], Args: args[1:]}, executorCtx)
 	if err != nil {
 		pluginClient.Kill()
 		return nil, fmt.Errorf("error starting process via the plugin: %v", err)
 	}
+	d.logger.Printf("[DEBUG] Started new XenVM %s using %s\n", vmID, cfgID)
 
 	// Create and Return Handle
 	h := &xenHandle{
-		tstart:       tstart,
 		pluginClient: pluginClient,
 		executor:     exec,
 		userPid:      ps.Pid,
@@ -428,9 +420,6 @@ func (h *xenHandle) run() {
 		close(h.waitCh)
 	*/
 	ps, err := h.executor.Wait()
-	tend := time.Now()
-	duration := tend.Sub(h.tstart)
-	h.logger.Printf("[DEBUG] Started new xenVM in %v\n", duration)
 	if ps.ExitCode == 0 && err != nil {
 		if e := killProcess(h.userPid); e != nil {
 			h.logger.Printf("[ERROR] driver.xen: error killing user process: %v", e)

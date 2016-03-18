@@ -3,7 +3,7 @@
 # Increase log verbosity
 log_level = "DEBUG"
 
-data_dir = "/var/lib/canary_dev"
+data_dir = "/tmp/canary_dev"
 
 server {
   enabled = true

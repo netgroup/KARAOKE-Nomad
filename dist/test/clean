@@ -1,0 +1,15 @@
+#!/bin/bash
+
+targets=($(cat /proc/mounts | grep /tmp/local_client))
+
+for i in ${targets[@]};
+do
+if [[ $i == *"/tmp/local_client"* ]]
+then
+  umount $i
+fi
+done
+
+rm -r /tmp/local_client/
+rm -r /tmp/local_server/
+rm -r /tmp/plugin*
