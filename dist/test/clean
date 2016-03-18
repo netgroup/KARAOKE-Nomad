@@ -1,15 +1,19 @@
 #!/bin/bash
 
-targets=($(cat /proc/mounts | grep /tmp/local_client))
+CLI_PATH=/tmp/local_client
+SER_PATH=/tmp/local_server/
+PLU_PATH=/tmp/plugin*
+
+targets=($(cat /proc/mounts | grep $CLI_PATH))
 
 for i in ${targets[@]};
 do
-if [[ $i == *"/tmp/local_client"* ]]
+if [[ $i == *"$CLI_PATH"* ]]
 then
   umount $i
 fi
 done
 
-rm -r /tmp/local_client/
-rm -r /tmp/local_server/
-rm -r /tmp/plugin*
+rm -r $CLI_PATH
+rm -r $SER_PATH
+rm -r $PLU_PATH

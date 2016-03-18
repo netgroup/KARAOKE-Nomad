@@ -2,11 +2,14 @@
 
 i="1"
 j="10"
+
+SERVER_ADDRESS=http://160.80.105.5:4646
+
 while [ $i -le $j ]
 do
 	echo -e "RUN"
 	START=$(date +%s.%N)
-	sudo nomad run -detach "example$i.nomad"
+	sudo nomad run -detach -address=$SERVER_ADDRESS "example$i.nomad"
 	#sudo nomad run "example$i.nomad"
 	END=$(date +%s.%N)
 	DIFF=$(echo "($END - $START)*1000" | bc)
@@ -14,18 +17,3 @@ do
 	#sleep 0.01
 	i=$[$i+1]
 done
-
-#sleep 30 
-
-#i="1"
-#while [ $i -le 1 ]
-#do
-#        echo -e "STOP"
-#        START=$(date +%s.%N)
-#        sudo nomad stop "example$i"
-#        END=$(date +%s.%N)
-#        DIFF=$(echo "($END - $START)*1000" | bc)
-#        echo -e "Executed in $DIFF ms"
-#        i=$[$i+1]
-#done
-

@@ -4,7 +4,7 @@
 log_level = "DEBUG"
 
 # Setup data dir
-data_dir = "/tmp/canary_server"
+data_dir = "/tmp/sparrow_server"
 
 bind_addr = "160.80.105.5"
 
