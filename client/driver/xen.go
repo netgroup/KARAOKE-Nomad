@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -56,14 +57,18 @@ type xenHandle struct {
 // xenHandle is returned from Start/Open as a handle to the PID (identical to qemu)
 // TODO verify if it is ok
 type xenHandle struct {
-	pluginClient *plugin.Client
-	userPid      int
-	executor     executor.Executor
-	allocDir     *allocdir.AllocDir
-	killTimeout  time.Duration
-	logger       *log.Logger
-	waitCh       chan *cstructs.WaitResult
-	doneCh       chan struct{}
+	pluginClient  *plugin.Client
+	userPid       int
+	executor      executor.Executor
+	allocDir      *allocdir.AllocDir
+	killTimeout   time.Duration
+	logger        *log.Logger
+	waitCh        chan *cstructs.WaitResult
+	doneCh        chan struct{}
+	get_config    time.Duration
+	alloc_dir     time.Duration
+	down_artifact time.Duration
+	init_env      time.Duration
 }
 
 // NewXenDriver is used to create a new exec driver (identical to qemu and java).
@@ -113,6 +118,8 @@ func (d *XenDriver) Fingerprint(cfg *config.Config, node *structs.Node) (bool, e
 // image and save it to the Drivers Allocation Dir
 func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, error) {
 
+	start_config := time.Now()
+
 	var driverConfig XenDriverConfig
 	if err := mapstructure.WeakDecode(task.Config, &driverConfig); err != nil {
 		return nil, err
@@ -136,6 +143,8 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		return nil, fmt.Errorf("Missing source image Xen driver")
 	}
 
+	end_config := time.Now()
+
 	// Qemu defaults to 128M of RAM for a given VM. Instead, we force users to
 	// supply a memory size in the tasks resources
 	/*
@@ -144,11 +153,17 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		}
 	*/
 
+	start_allocDir := time.Now()
+
 	// Get the tasks local directory.
 	taskDir, ok := ctx.AllocDir.TaskDirs[d.DriverContext.taskName]
 	if !ok {
 		return nil, fmt.Errorf("Could not find task directory for task: %v", d.DriverContext.taskName)
 	}
+
+	end_allocDir := time.Now()
+
+	start_downArtifact := time.Now()
 
 	// Proceed to download an artifact to be executed.
 	cfgPath, err := getter.GetArtifact(
@@ -174,6 +189,8 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 	cfgID := filepath.Base(cfgPath)
 	vmID := filepath.Base(vmPath)
 
+	end_downArtificat := time.Now()
+
 	// Parse configuration arguments
 	// Create the base arguments
 	/*
@@ -184,6 +201,8 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		// TODO: Check a lower bounds, e.g. the default 128 of Qemu
 		mem := fmt.Sprintf("%dM", task.Resources.MemoryMB)
 	*/
+
+	start_init_env := time.Now()
 
 	args := []string{
 		"xl",
@@ -274,6 +293,13 @@ func (d *XenDriver) Start(ctx *ExecContext, task *structs.Task) (DriverHandle, e
 		doneCh:       make(chan struct{}),
 		waitCh:       make(chan *cstructs.WaitResult, 1),
 	}
+
+	end_init_env := time.Now()
+
+	h.get_config = end_config.Sub(start_config)
+	h.alloc_dir = end_allocDir.Sub(start_allocDir)
+	h.down_artifact = end_downArtificat.Sub(start_downArtifact)
+	h.init_env = end_init_env.Sub(start_init_env)
 
 	go h.run()
 	return h, nil
@@ -419,7 +445,14 @@ func (h *xenHandle) run() {
 		h.waitCh <- res
 		close(h.waitCh)
 	*/
+	start_spawn := time.Now()
+
 	ps, err := h.executor.Wait()
+
+	end_spawn := time.Now()
+
+	start_clean := time.Now()
+
 	if ps.ExitCode == 0 && err != nil {
 		if e := killProcess(h.userPid); e != nil {
 			h.logger.Printf("[ERROR] driver.xen: error killing user process: %v", e)
@@ -432,5 +465,41 @@ func (h *xenHandle) run() {
 	h.waitCh <- &cstructs.WaitResult{ExitCode: ps.ExitCode, Signal: 0, Err: err}
 	close(h.waitCh)
 	h.pluginClient.Kill()
+
+	end_clean := time.Now()
+
+	f, err := os.OpenFile("nomad_timestamps.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		panic(err)
+	}
+
+	spawn := end_spawn.Sub(start_spawn)
+	clean := end_clean.Sub(start_clean)
+
+	defer f.Close()
+
+	if _, err = f.WriteString(fmt.Sprintf("get_config: %v", h.get_config)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f.WriteString(fmt.Sprintf("alloc_dir: %v", h.alloc_dir)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f.WriteString(fmt.Sprintf("down_artifact: %v", h.down_artifact)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f.WriteString(fmt.Sprintf("init_env: %v", h.init_env)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f.WriteString(fmt.Sprintf("spawn: %v", spawn)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f.WriteString(fmt.Sprintf("clean: %v", clean)); err != nil {
+		panic(err)
+	}
 
 }
