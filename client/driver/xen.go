@@ -468,37 +468,72 @@ func (h *xenHandle) run() {
 
 	end_clean := time.Now()
 
-	f, err := os.OpenFile("nomad_timestamps.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	spawn := end_spawn.Sub(start_spawn)
+	clean := end_clean.Sub(start_clean)
+
+	f1, err := os.OpenFile("get_config.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		panic(err)
 	}
 
-	spawn := end_spawn.Sub(start_spawn)
-	clean := end_clean.Sub(start_clean)
+	defer f1.Close()
 
-	defer f.Close()
-
-	if _, err = f.WriteString(fmt.Sprintf("get_config: %v", h.get_config)); err != nil {
+	f2, err := os.OpenFile("alloc_dir.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
 		panic(err)
 	}
 
-	if _, err = f.WriteString(fmt.Sprintf("alloc_dir: %v", h.alloc_dir)); err != nil {
+	defer f2.Close()
+
+	f3, err := os.OpenFile("down_artifact.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
 		panic(err)
 	}
 
-	if _, err = f.WriteString(fmt.Sprintf("down_artifact: %v", h.down_artifact)); err != nil {
+	defer f3.Close()
+
+	f4, err := os.OpenFile("init_env.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
 		panic(err)
 	}
 
-	if _, err = f.WriteString(fmt.Sprintf("init_env: %v", h.init_env)); err != nil {
+	defer f4.Close()
+
+	f5, err := os.OpenFile("spawn.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
 		panic(err)
 	}
 
-	if _, err = f.WriteString(fmt.Sprintf("spawn: %v", spawn)); err != nil {
+	defer f5.Close()
+
+	f6, err := os.OpenFile("clean.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
 		panic(err)
 	}
 
-	if _, err = f.WriteString(fmt.Sprintf("clean: %v", clean)); err != nil {
+	defer f6.Close()
+
+	if _, err = f1.WriteString(fmt.Sprintf("%v\n", float64(h.get_config.Nanoseconds())/1000000)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f2.WriteString(fmt.Sprintf("%v\n", float64(h.alloc_dir.Nanoseconds())/1000000)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f3.WriteString(fmt.Sprintf("%v\n", float64(h.down_artifact.Nanoseconds())/1000000)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f4.WriteString(fmt.Sprintf("%v\n", float64(h.init_env.Nanoseconds())/1000000)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f5.WriteString(fmt.Sprintf("%v\n", float64(spawn.Nanoseconds())/1000000)); err != nil {
+		panic(err)
+	}
+
+	if _, err = f6.WriteString(fmt.Sprintf("%v\n", float64(clean.Nanoseconds())/1000000)); err != nil {
 		panic(err)
 	}
 
